@@ -183,12 +183,15 @@ SharedMatrix SCFDeriv::compute_gradient()
     timer_off("Grad: V T Perturb");
 
     // If an external field exists, add it to the one-electron Hamiltonian
+    SharedMatrix extcgrad;
     if (external_pot_) {
         gradient_terms.push_back("External Potential");
         timer_on("Grad: External");
-        gradients_["External Potential"] = external_pot_->computePotentialGradients(basisset_, Dt);
+        auto external_grads = external_pot_->computePotentialGradients(basisset_, Dt);
+        gradients_["External Potential"] = external_grads.first;
+        extcgrad = external_grads.second;
         timer_off("Grad: External");
-    }  // end external
+    }
 
     // => Overlap Gradient <= //
     timer_on("Grad: S");
@@ -301,9 +304,18 @@ SharedMatrix SCFDeriv::compute_gradient()
     } else {
         gradients_["Total"]->print_atom_vector();
     }
+    
+    SharedMatrix grad;
+    if (external_pot_) {
+        std::vector<SharedMatrix> grad_pair;
+        grad_pair.push_back(gradients_["Total"]);
+        grad_pair.push_back(extcgrad);
+        grad = linalg::vertcat(grad_pair);
+    } else {
+        grad = gradients_["Total"];
+    }
 
-
-    return gradients_["Total"];
+    return grad;
 }
 
 void process_buffers(double **Hess, const std::vector<double> &Hvalues, int atom1, int atom2, int natoms,

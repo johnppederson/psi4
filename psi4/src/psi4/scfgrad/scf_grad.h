@@ -59,7 +59,7 @@ public:
     ~SCFDeriv() override;
 
     double compute_energy() override { throw PSIEXCEPTION("SCFDeriv not implemented for the requested reference type."); }
-    virtual SharedMatrix compute_gradient() override;
+    virtual SharedMatrix compute_gradient();
     virtual SharedMatrix compute_hessian() override;
     virtual SharedMatrix hessian_response() { throw PSIEXCEPTION("SCFDeriv not implemented for the requested reference type."); }
 };

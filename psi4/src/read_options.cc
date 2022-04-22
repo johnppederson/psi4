@@ -288,6 +288,9 @@ int read_options(const std::string &name, Options &options, bool suppress_printi
         options.add_str("PCM_CC_TYPE", "PTE", "PTE");
     }
 
+    /*- PME boolean for the QM/MM/PME method -*/
+    options.add_bool("PME", false);
+
     if (name == "PE" || options.read_globals()) {
         /*- MODULEDESCRIPTION Performs polarizable embedding model (PE) computations. -*/
 

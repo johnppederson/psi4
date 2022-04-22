@@ -943,6 +943,8 @@ void export_mints(py::module& m) {
             "Returns the rotational constants [cm^-1] of the molecule")
         .def("print_rotational_constants", &Molecule::print_rotational_constants,
              "Print the rotational constants to output file")
+        .def("set_do_extd_pot", &Molecule::set_do_extd_pot,
+             "Sets whether to incorporate the QM/MM/PME extended potential into the nuclear repulsion energy")
         .def("nuclear_repulsion_energy", &Molecule::nuclear_repulsion_energy,
              "dipole_field"_a = std::vector<double>(3, 0.0), "Computes nuclear repulsion energy")
         .def("nuclear_repulsion_energy_deriv1", &Molecule::nuclear_repulsion_energy_deriv1,
@@ -1006,6 +1008,20 @@ void export_mints(py::module& m) {
                 return srt;
             },
             "Returns units used to define the geometry, i.e. 'Angstrom' or 'Bohr'")
+        .def(
+            "extd_pot",
+            [](Molecule& mol) {
+                auto ret = std::make_shared<Vector>("Nucleii Extended Potential", mol.natom());
+                C_DCOPY(mol.natom(), mol.extd_pot(), 1, ret->pointer(), 1);
+                return ret;
+            },
+            "The QM/MM/PME extended potential on the nucleii")
+        .def(
+            "set_extd_pot",
+            [](Molecule& mol, std::shared_ptr<Vector> extd_pot) {
+                C_DCOPY(mol.natom(), extd_pot->pointer(), 1, mol.extd_pot(), 1);
+            },
+            "The QM/MM/PME extended potential on the nucleii")
         .def("set_units", &Molecule::set_units,
              "Sets units (Angstrom or Bohr) used to define the geometry. Imposes Psi4 physical constants conversion "
              "for input_units_to_au.")

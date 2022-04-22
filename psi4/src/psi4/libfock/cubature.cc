@@ -4172,7 +4172,14 @@ BlockOPoints::BlockOPoints(size_t index, size_t npoints, double *x, double *y, d
     bound();
     populate();
 }
+BlockOPoints::BlockOPoints(size_t index, size_t npoints, double *x, double *y, double *z, double *w,
+                           double *extd_pot, std::shared_ptr<BasisExtents> extents)
+    : index_(index), npoints_(npoints), x_(x), y_(y), z_(z), w_(w), extd_pot_(extd_pot), extents_(extents) {
+    bound();
+    populate();
+}
 BlockOPoints::~BlockOPoints() {}
+void BlockOPoints::set_extd_pot(double *extd_pot) { *extd_pot_ = *extd_pot; }
 void BlockOPoints::bound() {
     // Initially: mean center and max spread of point cloud
     double R2 = 0.0;
@@ -4842,6 +4849,7 @@ void OctreeGridBlocker::block() {
     y_ = new double[npoints_];
     z_ = new double[npoints_];
     w_ = new double[npoints_];
+    extd_pot_ = new double[npoints_];
 
     int index = 0;
     int unique_block = 0;
@@ -4873,7 +4881,7 @@ void OctreeGridBlocker::block() {
         std::vector<int> block = completed_tree[A];
         if (!block.size()) continue;
         auto bop =
-            std::make_shared<BlockOPoints>(A, block.size(), &x_[index], &y_[index], &z_[index], &w_[index], extents_);
+            std::make_shared<BlockOPoints>(A, block.size(), &x_[index], &y_[index], &z_[index], &w_[index], &extd_pot_[index], extents_);
         // BlockOPoints construction performs additional pruning. Need to test if any points remain.
         if (bop->local_nbf()) {
             blocks_.push_back(bop);
