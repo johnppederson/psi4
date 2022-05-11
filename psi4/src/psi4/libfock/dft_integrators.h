@@ -257,6 +257,14 @@ inline void rks_gradient_integrator(std::shared_ptr<BasisSet> primary, std::shar
         std::fill(Tp[P], Tp[P] + nlocal, 0.0);
         C_DAXPY(nlocal, -2.0 * w[P] * v_rho_a[P], phi[P], 1, Tp[P], 1);
     }
+    
+    // => QM/MM/PME extended potential contribution <= //
+    if (fworker->needs_extd_pot()){
+        double* extd_pot = block->extd_pot();
+        for (int P = 0; P < npoints; P++) {
+            C_DAXPY(nlocal, 2.0 * extd_pot[P] * w[P], phi[P], 1, Tp[P], 1);
+        }
+    }
 
     // => GGA Contribution (Term 1) <= //
     if (fworker->is_gga()) {
@@ -282,7 +290,7 @@ inline void rks_gradient_integrator(std::shared_ptr<BasisSet> primary, std::shar
         Gp[A][1] += C_DDOT(npoints, &Up[0][ml], max_functions, &phi_y[0][ml], coll_funcs);
         Gp[A][2] += C_DDOT(npoints, &Up[0][ml], max_functions, &phi_z[0][ml], coll_funcs);
     }
-
+    
     // => GGA Contribution (Term 2) <= //
     if (fworker->is_gga()) {
         double** phi_xx = pworker->basis_value("PHI_XX")->pointer();

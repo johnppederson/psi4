@@ -4172,8 +4172,8 @@ BlockOPoints::BlockOPoints(size_t index, size_t npoints, double *x, double *y, d
     bound();
     populate();
 }
-BlockOPoints::BlockOPoints(size_t index, size_t npoints, double *x, double *y, double *z, double *w,
-                           double *extd_pot, std::shared_ptr<BasisExtents> extents)
+BlockOPoints::BlockOPoints(size_t index, size_t npoints, double *x, double *y, double *z, double *w, double *extd_pot,
+                           std::shared_ptr<BasisExtents> extents)
     : index_(index), npoints_(npoints), x_(x), y_(y), z_(z), w_(w), extd_pot_(extd_pot), extents_(extents) {
     bound();
     populate();

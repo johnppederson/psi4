@@ -943,8 +943,12 @@ void export_mints(py::module& m) {
             "Returns the rotational constants [cm^-1] of the molecule")
         .def("print_rotational_constants", &Molecule::print_rotational_constants,
              "Print the rotational constants to output file")
-        .def("set_do_extd_pot", &Molecule::set_do_extd_pot,
-             "Sets whether to incorporate the QM/MM/PME extended potential into the nuclear repulsion energy")
+        .def(
+            "set_do_extd_pot", &Molecule::set_do_extd_pot,
+            "Sets whether to incorporate the QM/MM/PME extended potential into the nuclear repulsion energy")
+        .def(
+            "set_do_extd_grad", &Molecule::set_do_extd_grad,
+            "Sets whether to incorporate the QM/MM/PME extended gradient into the nuclear repulsion force.")
         .def("nuclear_repulsion_energy", &Molecule::nuclear_repulsion_energy,
              "dipole_field"_a = std::vector<double>(3, 0.0), "Computes nuclear repulsion energy")
         .def("nuclear_repulsion_energy_deriv1", &Molecule::nuclear_repulsion_energy_deriv1,
@@ -1008,6 +1012,43 @@ void export_mints(py::module& m) {
                 return srt;
             },
             "Returns units used to define the geometry, i.e. 'Angstrom' or 'Bohr'")
+        .def(
+            "extd_grad_x",
+            [](Molecule &mol) {
+                auto ret = std::make_shared<Vector>("Nuclear X Gradient in Extended Potential", mol.natom());
+                C_DCOPY(mol.natom(), mol.extd_grad_x(), 1, ret->pointer(), 1);
+                return ret;
+            })
+
+        .def(
+            "set_extd_grad_x",
+            [](Molecule &mol, std::shared_ptr<Vector> extd_grad_x) {
+                C_DCOPY(mol.natom(), extd_grad_x->pointer(), 1, mol.extd_grad_x(), 1);
+            })
+        .def(
+            "extd_grad_y",
+            [](Molecule &mol) {
+                auto ret = std::make_shared<Vector>("Nuclear Y Gradient in Extended Potential", mol.natom());
+                C_DCOPY(mol.natom(), mol.extd_grad_y(), 1, ret->pointer(), 1);
+                return ret;
+            })
+        .def(
+            "set_extd_grad_y",
+            [](Molecule &mol, std::shared_ptr<Vector> extd_grad_y) {
+                C_DCOPY(mol.natom(), extd_grad_y->pointer(), 1, mol.extd_grad_y(), 1);
+            })
+        .def(
+            "extd_grad_z",
+            [](Molecule &mol) {
+                auto ret = std::make_shared<Vector>("Nuclear Z Gradient in Extended Potential", mol.natom());
+                C_DCOPY(mol.natom(), mol.extd_grad_z(), 1, ret->pointer(), 1);
+                return ret;
+            })
+        .def(
+            "set_extd_grad_z",
+            [](Molecule &mol, std::shared_ptr<Vector> extd_grad_z) {
+                C_DCOPY(mol.natom(), extd_grad_z->pointer(), 1, mol.extd_grad_z(), 1);
+            })
         .def(
             "extd_pot",
             [](Molecule& mol) {

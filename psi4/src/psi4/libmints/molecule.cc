@@ -150,7 +150,8 @@ Molecule::Molecule()
       // old_symmetry_frame_(0)
       reinterpret_coordentries_(true),
       lock_frame_(false),
-      needs_extd_pot_(false) {}
+      needs_extd_pot_(false),
+      needs_extd_grad_(false) {}      
 
 Molecule::~Molecule() {
     clear();
@@ -485,6 +486,16 @@ Matrix Molecule::nuclear_repulsion_energy_deriv1(const std::array<double, 3> &di
                 de(i, 2) -= (z(i) - z(j)) * Zi * Zj / temp;
             }
         }
+    }
+    
+    // Add QM/MM/PME extended potential contribution
+    if (needs_extd_grad()) {
+       for (int i = 0; i < natom(); ++i) {
+           double Zi = Z(i);
+           de(i, 0) += Zi * extd_grad_x_[i];
+           de(i, 1) += Zi * extd_grad_y_[i];
+           de(i, 2) += Zi * extd_grad_z_[i];
+       }
     }
 
     return de;

@@ -46,6 +46,7 @@
 #include "psi4/libmints/mintshelper.h"
 #include "psi4/psi4-dec.h"
 #include "psi4/libfock/v.h"
+#include "psi4/libfock/cubature.h"
 #include "psi4/libfunctional/superfunctional.h"
 #include "psi4/libdisp/dispersion.h"
 #include "psi4/libscf_solver/hf.h"

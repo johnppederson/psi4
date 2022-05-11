@@ -2562,6 +2562,19 @@ def run_scf_gradient(name, **kwargs):
         disp_grad = ref_wfn._disp_functor.compute_gradient(ref_wfn.molecule(), ref_wfn)
         ref_wfn.set_variable("-D Gradient", disp_grad)
 
+    # QM/MM/PME preparation.
+    if core.get_option('SCF', 'PME'):
+        ref_wfn.molecule().set_do_extd_grad(True)
+        qmmm_pme_gridnumber = kwargs['qmmm_pme_gridnumber']
+        extd_pot = kwargs['potential_grid']
+        box = kwargs['box']
+        pme.grid_interface.pass_nuclei_extd_grad(
+            ref_wfn,
+            qmmm_pme_gridnumber,
+            extd_pot,
+            box,
+        )
+
     grad = core.scfgrad(ref_wfn)
 
     if ref_wfn.basisset().has_ECP():

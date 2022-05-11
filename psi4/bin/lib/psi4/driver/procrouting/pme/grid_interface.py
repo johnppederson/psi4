@@ -26,6 +26,7 @@
 # @END LICENSE
 #
 import copy
+import itertools
 import math
 import sys
 
@@ -131,6 +132,68 @@ def pass_nuclei_extd_pot(
     )
     extd_vector = core.Vector.from_array(extd_pot)
     flag = wfn.molecule().set_extd_pot(extd_vector)
+
+
+def pass_nuclei_extd_grad(wfn, qmmm_pme_gridnumber, extd_pot, box):
+    nuclei_grid=[]
+    for i in range(wfn.molecule().natom()):
+        xyz = wfn.molecule().xyz(i)
+        nuclei_grid.append([xyz[0], xyz[1], xyz[2]])
+    nuclei_grid = np.array( nuclei_grid )
+    print('Calculating interpolation derivatives for nuclei grid.\n')
+    inverse_box = np.linalg.inv(box)
+    nuclei_grid_project = project_to_PME_grid(
+        nuclei_grid,
+        inverse_box,
+        qmmm_pme_gridnumber,
+    )
+    extd_pot_pad = pad_extd_pot_grid(extd_pot, qmmm_pme_gridnumber)
+    xdim = np.array([i for i in range(-1,qmmm_pme_gridnumber+1)])
+    grid = (xdim, xdim, xdim )
+    extd_pot_3d = np.reshape(
+        extd_pot_pad,
+        (
+            qmmm_pme_gridnumber + 2,
+            qmmm_pme_gridnumber + 2,
+            qmmm_pme_gridnumber + 2,
+        )
+    )
+    # This code is largely based on
+    # scipy.interpolate.RegularGridInterpolator._evaluate linear.
+    interp_function = scipy.interpolate.RegularGridInterpolator(
+        grid,
+        extd_pot_3d,
+    )
+    indices, norm_dist, out_of_bounds = interp_function._find_indices(
+        nuclei_grid_project.T,
+    )
+    edges = itertools.product(*[[i, i + 1] for i in indices])
+    vslice = (slice(None),) + (None,)*(interp_function.values.ndim - len(indices))
+    extd_du=[0 for i in range(3)]
+    for edge_indices in edges:
+        weight = 1.
+        weight_du = [1. for i in range(3)]
+        j=0
+        for ei, i, yi in zip(edge_indices, indices, norm_dist):
+            weight *= np.where(ei == i, 1 - yi, yi)
+            for k in range(3):
+                if j == k:
+                    weight_du[k] *= np.where(ei == i, -1.0, 1.0)
+                else:
+                    weight_du[k] *= np.where(ei == i, 1 - yi, yi)
+            j+=1
+        extd_du[0] += np.asarray(interp_function.values[edge_indices]) * weight_du[0][vslice]
+        extd_du[1] += np.asarray(interp_function.values[edge_indices]) * weight_du[1][vslice]
+        extd_du[2] += np.asarray(interp_function.values[edge_indices]) * weight_du[2][vslice]
+    extd_dr = qmmm_pme_gridnumber * np.matmul(inverse_box, extd_du)
+    print('Completed interpolation derivatives for nuclei grid.\n')
+    extd_grad_x = core.Vector.from_array(extd_dr[:,0])
+    extd_grad_y = core.Vector.from_array(extd_dr[:,1])
+    extd_grad_z = core.Vector.from_array(extd_dr[:,2])
+    flag = wfn.molecule().set_extd_grad_x(extd_grad_x)
+    flag = wfn.molecule().set_extd_grad_y(extd_grad_y)
+    flag = wfn.molecule().set_extd_grad_z(extd_grad_z)
+    return 1
 
 
 #*******************************************

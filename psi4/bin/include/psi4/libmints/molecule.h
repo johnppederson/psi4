@@ -190,8 +190,12 @@ class PSI_API Molecule {
     bool cart_;
     /// Whether to add QM/MM/PME extended potential to nuclear repulsion
     bool needs_extd_pot_;
-    /// The QM/MM/PME extended potential
+    bool needs_extd_grad_;
+    /// The QM/MM/PME extended potential and nuclear derivatives
     double* extd_pot_;
+    double* extd_grad_x_;
+    double* extd_grad_y_;
+    double* extd_grad_z_;
     /// Checks whether atom is within bounds of atom_ or full_atom_
     void check_atom_(int atom, bool full) const;
 
@@ -655,17 +659,32 @@ class PSI_API Molecule {
 
     /// Get the QM/MM/PME requirement for nuclear repulsion
     bool needs_extd_pot() const { return needs_extd_pot_; }
-    /// Set QM/MM/PME extd_pot; not best practice
+    bool needs_extd_grad() const { return needs_extd_grad_;};
+    /// Set QM/MM/PME extended potential terms; not best practice
     void set_do_extd_pot(bool do_extd_pot) {
         needs_extd_pot_ = do_extd_pot;
         if (needs_extd_pot_) {
             extd_pot_ = new double[natom()];
         }
     }
-    /// Set extd_pot
+    void set_do_extd_grad(bool do_extd_grad) {
+        needs_extd_grad_ = do_extd_grad;
+        if (needs_extd_grad_) {
+            extd_grad_x_ = new double[natom()];
+            extd_grad_y_ = new double[natom()];
+            extd_grad_z_ = new double[natom()];
+        }
+    }
+    /// Set extended potential terms
     void set_extd_pot(double *extd_pot) { *extd_pot_ = *extd_pot; }
+    void set_extd_grad_x(double *extd_grad_x) { *extd_grad_x_= *extd_grad_x; }
+    void set_extd_grad_y(double *extd_grad_y) { *extd_grad_y_= *extd_grad_y; }
+    void set_extd_grad_z(double *extd_grad_z) { *extd_grad_z_= *extd_grad_z; }
     /// The extended potential; not best practice
     double* extd_pot() { return extd_pot_; }
+    double* extd_grad_x() { return extd_grad_x_; }
+    double* extd_grad_y() { return extd_grad_y_; }
+    double* extd_grad_z() { return extd_grad_z_; }
 
     /// Sets the geometry units
     void set_units(GeometryUnits units);

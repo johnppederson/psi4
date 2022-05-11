@@ -1,9 +1,9 @@
-__version__ = '1.6a1.dev147'
+__version__ = '1.6a1.dev148'
 __version_branch_name = 'master'
 __version_cmake = '1.5.0.999'
 __version_is_clean = 'False'
 __version_last_release = '1.5'
-__version_long = '1.6a1.dev147+42f7d39'
+__version_long = '1.6a1.dev148+ba8ba50'
 __version_prerelease = 'False'
 __version_release = 'False'
 

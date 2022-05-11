@@ -3317,12 +3317,30 @@ SharedMatrix UV::compute_gradient() {
         rhobyq[rank] += C_DDOT(npoints, QTp, 1, y, 1);
         rhobzq[rank] += C_DDOT(npoints, QTp, 1, z, 1);
 
+        // => QM/MM/PME extended potential Contribution <= //
+        if (fworker->needs_extd_pot()) {
+            double* extd_pot = block->extd_pot();
+            for (int P = 0; P < npoints; P++) {
+                QTp[P] = -1.0 * QTp[P];
+            }
+            functionalq[rank] += C_DDOT(npoints, QTp, 1, extd_pot, 1);
+        }
+
         // => LSDA Contribution <= //
         for (int P = 0; P < npoints; P++) {
             std::fill(Tap[P], Tap[P] + nlocal, 0.0);
             std::fill(Tbp[P], Tbp[P] + nlocal, 0.0);
             C_DAXPY(nlocal, -2.0 * w[P] * v_rho_a[P], phi[P], 1, Tap[P], 1);
             C_DAXPY(nlocal, -2.0 * w[P] * v_rho_b[P], phi[P], 1, Tbp[P], 1);
+        }
+        
+        // => QM/MM/PME Contribution <= //
+        if (fworker->needs_extd_pot()) {
+            double* extd_pot = block->extd_pot();
+            for (int P = 0; P < npoints; P++) {
+                C_DAXPY(nlocal, 2.0 * extd_pot[P] * w[P], phi[P], 1, Tap[P], 1);
+                C_DAXPY(nlocal, 2.0 * extd_pot[P] * w[P], phi[P], 1, Tbp[P], 1);
+            }
         }
 
         // => GGA Contribution (Term 1) <= //
