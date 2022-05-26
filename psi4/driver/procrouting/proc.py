@@ -1189,28 +1189,18 @@ def scf_wavefunction_factory(name, ref_wfn, reference, **kwargs):
         # Set molecule to include vext contribution in nuclear
         # repulsion energy.
         ref_wfn.molecule().set_do_extd_pot(True)
-        for key, value in kwargs.items():
-            print("{0} = {1}".format(key, value))
         # Make sure required input has been passed.
-        if ((not 'qmmm_pme_gridnumber' in kwargs)
-            or (not 'potential_grid' in kwargs)
-            or (not 'box' in kwargs)):
+        if ((not 'quad_extd_pot' in kwargs)
+            or (not 'nuc_extd_pot' in kwargs)):
             raise ValidationError(
-                """QM/MM/PME requires the qmmm_pme_gridnumber, the
-                potential_grid, and the box."""
+                """QM/MM/PME requires the extended potential at the
+                quadrature gridpoints, quad_extd_pot, and the extended
+                potential at the nuclear coordinates, nuc_extd_pot."""
             )
         else:
-            qmmm_pme_gridnumber = kwargs['qmmm_pme_gridnumber']
-            extd_pot = kwargs['potential_grid']
-            interp_method = kwargs['interpolation_method']
-            box = kwargs['box']
-            pme.grid_interface.pass_nuclei_extd_pot(
-                ref_wfn, 
-                qmmm_pme_gridnumber,
-                extd_pot,
-                interp_method,
-                box,
-            )
+            nuc_extd_pot = kwargs['nuc_extd_pot']
+            extd_vector = core.Vector.from_array(nuc_extd_pot)
+            flag = ref_wfn.molecule().set_extd_pot(extd_vector)
 
     # Build the wavefunction
     core.prepare_options_for_module("SCF")
@@ -1661,16 +1651,10 @@ def scf_helper(name, post_scf=True, **kwargs):
                 """ QM/MM/PME is only implemented for PBE in testing
                 phase.\n"""
             )
-        qmmm_pme_gridnumber = kwargs['qmmm_pme_gridnumber']
-        extd_pot = kwargs['potential_grid']
-        interp_method = kwargs['interpolation_method']
-        box = kwargs['box']
-        pme.grid_interface.pass_quadrature_extd_pot(
-            scf_wfn,
-            qmmm_pme_gridnumber,
-            extd_pot,
-            interp_method,
-            box,
+        quad_extd_pot = kwargs['quad_extd_pot']
+        pme.grid_interface.set_blocks_extd_pot(
+            scf_wfn.V_potential(),
+            quad_extd_pot,
         )
 
     e_scf = scf_wfn.compute_energy()
@@ -2564,16 +2548,20 @@ def run_scf_gradient(name, **kwargs):
 
     # QM/MM/PME preparation.
     if core.get_option('SCF', 'PME'):
-        ref_wfn.molecule().set_do_extd_grad(True)
-        qmmm_pme_gridnumber = kwargs['qmmm_pme_gridnumber']
-        extd_pot = kwargs['potential_grid']
-        box = kwargs['box']
-        pme.grid_interface.pass_nuclei_extd_grad(
-            ref_wfn,
-            qmmm_pme_gridnumber,
-            extd_pot,
-            box,
-        )
+        if not 'nuc_extd_grad' in kwargs:
+            raise ValidationError(
+                """QM/MM/PME requires the gradient of the extended
+                potential at the nuclear coordinates, nuc_extd_grad."""
+            )
+        else:
+            ref_wfn.molecule().set_do_extd_grad(True)
+            nuc_extd_grad = kwargs['nuc_extd_grad']
+            extd_grad_x = core.Vector.from_array(nuc_extd_grad[:,0])
+            extd_grad_y = core.Vector.from_array(nuc_extd_grad[:,1])
+            extd_grad_z = core.Vector.from_array(nuc_extd_grad[:,2])
+            flag = ref_wfn.molecule().set_extd_grad_x(extd_grad_x)
+            flag = ref_wfn.molecule().set_extd_grad_y(extd_grad_y)
+            flag = ref_wfn.molecule().set_extd_grad_z(extd_grad_z)
 
     grad = core.scfgrad(ref_wfn)
 
