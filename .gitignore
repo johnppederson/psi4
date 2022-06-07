@@ -161,3 +161,4 @@ Pipfile.lock
 
 # Ignore the compiled bin
 bin/
+build/
