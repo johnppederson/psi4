@@ -659,7 +659,7 @@ class PSI_API Molecule {
 
     /// Get the QM/MM/PME requirement for nuclear repulsion
     bool needs_extd_pot() const { return needs_extd_pot_; }
-    bool needs_extd_grad() const { return needs_extd_grad_;};
+    bool needs_extd_grad() const { return needs_extd_grad_; }
     /// Set QM/MM/PME extended potential terms; not best practice
     void set_do_extd_pot(bool do_extd_pot) {
         needs_extd_pot_ = do_extd_pot;

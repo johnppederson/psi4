@@ -158,3 +158,6 @@ GTAGS
 GPATH
 GRTAGS
 Pipfile.lock
+
+# Ignore the compiled bin
+bin/

@@ -181,6 +181,8 @@ Molecule &Molecule::operator=(const Molecule &other) {
     reinterpret_coordentries_ = other.reinterpret_coordentries_;
     zmat_ = other.zmat_;
     cart_ = other.cart_;
+    needs_extd_pot_ = other.needs_extd_pot_;
+    needs_extd_grad_ = other.needs_extd_grad_;
 
     // These are symmetry related variables, and are filled in by the following functions
     pg_ = std::shared_ptr<PointGroup>();
