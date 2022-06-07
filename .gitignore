@@ -159,6 +159,6 @@ GPATH
 GRTAGS
 Pipfile.lock
 
-# Ignore the compiled bin
+# Ignore compiled directories
 bin/
 build/
