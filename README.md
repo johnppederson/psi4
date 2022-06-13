@@ -62,7 +62,6 @@ strives to be friendly to both users and developers.
 
 * **YouTube Channel** https://www.youtube.com/psitutorials-->
 
-
 License [![license](https://img.shields.io/github/license/psi4/psi4.svg)](https://opensource.org/licenses/LGPL-3.0)
 =======
 
