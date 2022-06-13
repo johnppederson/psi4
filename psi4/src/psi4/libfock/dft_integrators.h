@@ -63,7 +63,7 @@ inline std::vector<double> rks_quadrature_integrate(std::shared_ptr<BlockOPoints
 
     // Superfunctional data
     double* zk = fworker->value("V")->pointer();
-    double* QTp = fworker->value("Q_TMP")->pointer();
+    double* QTp = fworker->value("Q_TMP_A")->pointer();
 
     // Points data
     double* rho_a = pworker->point_value("RHO_A")->pointer();
@@ -86,6 +86,55 @@ inline std::vector<double> rks_quadrature_integrate(std::shared_ptr<BlockOPoints
             QTp[P] = -1.0 * QTp[P];
         }
         ret[0] = ret[0] + C_DDOT(npoints, QTp, 1, extd_pot, 1);
+    }
+
+    return ret;
+}
+
+inline std::vector<double> uks_quadrature_integrate(std::shared_ptr<BlockOPoints> block,
+                                                    std::shared_ptr<SuperFunctional> fworker,
+                                                    std::shared_ptr<PointFunctions> pworker) {
+    // Block data
+    int npoints = block->npoints();
+    double* x = block->x();
+    double* y = block->y();
+    double* z = block->z();
+    double* w = block->w();
+    
+    // Superfunctional data
+    double* zk = fworker->value("V")->pointer();
+    double* QTap = fworker->value("Q_TMP_A")->pointer();
+    double* QTbp = fworker->value("Q_TMP_B")->pointer();
+    
+    // Points data
+    double* rho_a = pworker->point_value("RHO_A")->pointer();
+    double* rho_b = pworker->point_value("RHO_B")->pointer();
+    
+    // Build quadrature
+    std::vector<double> ret(9);
+    ret[0] = C_DDOT(npoints, w, 1, zk, 1);
+    for (int P = 0; P < npoints; P++) {
+        QTap[P] = w[P] * rho_a[P];
+        QTbp[P] = w[P] * rho_b[P];
+    }
+    ret[1] += C_DDOT(npoints, w, 1, rho_a, 1);
+    ret[2] += C_DDOT(npoints, QTap, 1, x, 1);
+    ret[3] += C_DDOT(npoints, QTap, 1, y, 1);
+    ret[4] += C_DDOT(npoints, QTap, 1, z, 1);
+    ret[5] += C_DDOT(npoints, w, 1, rho_b, 1);
+    ret[6] += C_DDOT(npoints, QTbp, 1, x, 1);
+    ret[7] += C_DDOT(npoints, QTbp, 1, y, 1);
+    ret[8] += C_DDOT(npoints, QTbp, 1, z, 1);
+
+    // QM/MM/PME extended potential contribution
+    if (fworker->needs_extd_pot()) {
+        double* extd_pot = block->extd_pot();
+        for (int P = 0; P < npoints; P++) {
+            QTap[P] = -1.0 * QTap[P];
+            QTbp[P] = -1.0 * QTbp[P];
+        }
+        ret[0] += C_DDOT(npoints, QTap, 1, extd_pot, 1);
+        ret[0] += C_DDOT(npoints, QTbp, 1, extd_pot, 1);
     }
 
     return ret;
@@ -219,6 +268,140 @@ inline void rks_integrator(std::shared_ptr<BlockOPoints> block, std::shared_ptr<
                     max_functions);
         }
         // parallel_timer_off("Meta", rank);
+    }
+}
+
+inline void uks_integrator(std::shared_ptr<BlockOPoints> block, std::shared_ptr<SuperFunctional> fworker,
+                           std::shared_ptr<PointFunctions> pworker, SharedMatrix Va, SharedMatrix Vb, int ansatz = -1) {
+    ansatz = (ansatz == -1 ? fworker->ansatz() : ansatz);
+    // printf("Ansatz %d\n", ansatz);
+
+    // Block data
+    const std::vector<int>& function_map = block->functions_local_to_global();
+    int nlocal = function_map.size();
+    int npoints = block->npoints();
+    double* w = block->w();
+
+    // Scratch is updated
+    double** Tap = pworker->scratch()[0]->pointer();
+    double** Tbp = pworker->scratch()[1]->pointer();
+
+    // Points data
+    double** phi = pworker->basis_value("PHI")->pointer();
+    double* rho_a = pworker->point_value("RHO_A")->pointer();
+    double* rho_b = pworker->point_value("RHO_B")->pointer();
+    size_t coll_funcs = pworker->basis_value("PHI")->ncol();
+
+    // V2 Temporaries
+    int max_functions = Va->ncol();
+    double** Va2p = Va->pointer();
+    double** Vb2p = Vb->pointer();
+
+    // => LSDA contribution (symmetrized) <= //
+    double* v_rho_a = fworker->value("V_RHO_A")->pointer();
+    double* v_rho_b = fworker->value("V_RHO_B")->pointer();
+    for (int P = 0; P < npoints; P++) {
+        std::fill(Tap[P], Tap[P] + nlocal, 0.0);
+        std::fill(Tbp[P], Tbp[P] + nlocal, 0.0);
+        C_DAXPY(nlocal, 0.5 * v_rho_a[P] * w[P], phi[P], 1, Tap[P], 1);
+        C_DAXPY(nlocal, 0.5 * v_rho_b[P] * w[P], phi[P], 1, Tbp[P], 1);
+    }
+    
+    // => QM/MM/PME extended potential contribution <= //
+    if (fworker->needs_extd_pot()) {
+        // timer_on("V: PME");
+        double* extd_pot = block->extd_pot();
+        for (int P = 0; P < npoints; P++) {
+            C_DAXPY(nlocal, -0.5 * extd_pot[P] * w[P], phi[P], 1, Tap[P], 1);
+            C_DAXPY(nlocal, -0.5 * extd_pot[P] * w[P], phi[P], 1, Tbp[P], 1);
+        }
+        // timer_off("V: PME");
+    }
+
+    // => GGA contribution (symmetrized) <= //
+    if (ansatz >= 1) {
+        // timer_on("V: GGA");
+        double** phix = pworker->basis_value("PHI_X")->pointer();
+        double** phiy = pworker->basis_value("PHI_Y")->pointer();
+        double** phiz = pworker->basis_value("PHI_Z")->pointer();
+        double* rho_ax = pworker->point_value("RHO_AX")->pointer();
+        double* rho_ay = pworker->point_value("RHO_AY")->pointer();
+        double* rho_az = pworker->point_value("RHO_AZ")->pointer();
+        double* rho_bx = pworker->point_value("RHO_BX")->pointer();
+        double* rho_by = pworker->point_value("RHO_BY")->pointer();
+        double* rho_bz = pworker->point_value("RHO_BZ")->pointer();
+        double* v_sigma_aa = fworker->value("V_GAMMA_AA")->pointer();
+        double* v_sigma_ab = fworker->value("V_GAMMA_AB")->pointer();
+        double* v_sigma_bb = fworker->value("V_GAMMA_BB")->pointer();
+
+        for (int P = 0; P < npoints; P++) {
+            C_DAXPY(nlocal, w[P] * (2.0 * v_sigma_aa[P] * rho_ax[P] + v_sigma_ab[P] * rho_bx[P]), phix[P], 1,
+                    Tap[P], 1);
+            C_DAXPY(nlocal, w[P] * (2.0 * v_sigma_aa[P] * rho_ay[P] + v_sigma_ab[P] * rho_by[P]), phiy[P], 1,
+                    Tap[P], 1);
+            C_DAXPY(nlocal, w[P] * (2.0 * v_sigma_aa[P] * rho_az[P] + v_sigma_ab[P] * rho_bz[P]), phiz[P], 1,
+                    Tap[P], 1);
+            C_DAXPY(nlocal, w[P] * (2.0 * v_sigma_bb[P] * rho_bx[P] + v_sigma_ab[P] * rho_ax[P]), phix[P], 1,
+                    Tbp[P], 1);
+            C_DAXPY(nlocal, w[P] * (2.0 * v_sigma_bb[P] * rho_by[P] + v_sigma_ab[P] * rho_ay[P]), phiy[P], 1,
+                    Tbp[P], 1);
+            C_DAXPY(nlocal, w[P] * (2.0 * v_sigma_bb[P] * rho_bz[P] + v_sigma_ab[P] * rho_az[P]), phiz[P], 1,
+                    Tbp[P], 1);
+        }
+        // timer_off("V: GGA");
+    }
+
+    // Collect V terms
+    C_DGEMM('T', 'N', nlocal, nlocal, npoints, 1.0, phi[0], coll_funcs, Tap[0], max_functions, 0.0, Va2p[0],
+            max_functions);
+    C_DGEMM('T', 'N', nlocal, nlocal, npoints, 1.0, phi[0], coll_funcs, Tbp[0], max_functions, 0.0, Vb2p[0],
+            max_functions);
+
+    // Symmetrization (V is Hermitian)
+    for (int m = 0; m < nlocal; m++) {
+        for (int n = 0; n <= m; n++) {
+            Va2p[m][n] = Va2p[n][m] = Va2p[m][n] + Va2p[n][m];
+            Vb2p[m][n] = Vb2p[n][m] = Vb2p[m][n] + Vb2p[n][m];
+        }
+    }
+
+    // => Meta contribution <= //
+    if (ansatz >= 2) {
+        // timer_on("V: Meta");
+        double** phix = pworker->basis_value("PHI_X")->pointer();
+        double** phiy = pworker->basis_value("PHI_Y")->pointer();
+        double** phiz = pworker->basis_value("PHI_Z")->pointer();
+        double* v_tau_a = fworker->value("V_TAU_A")->pointer();
+        double* v_tau_b = fworker->value("V_TAU_B")->pointer();
+
+        double** phi[3];
+        phi[0] = phix;
+        phi[1] = phiy;
+        phi[2] = phiz;
+
+        double* v_tau[2];
+        v_tau[0] = v_tau_a;
+        v_tau[1] = v_tau_b;
+
+        double** V_val[2];
+        V_val[0] = Va2p;
+        V_val[1] = Vb2p;
+
+        for (int s = 0; s < 2; s++) {
+            double** V2p = V_val[s];
+            double* v_taup = v_tau[s];
+            for (int i = 0; i < 3; i++) {
+                double** phiw = phi[i];
+                for (int P = 0; P < npoints; P++) {
+                    std::fill(Tap[P], Tap[P] + nlocal, 0.0);
+                    C_DAXPY(nlocal, v_taup[P] * w[P], phiw[P], 1, Tap[P], 1);
+                }
+                C_DGEMM('T', 'N', nlocal, nlocal, npoints, 1.0, phiw[0], coll_funcs, Tap[0], max_functions, 1.0,
+                        V2p[0], max_functions);
+            }
+        }
+
+        // timer_off("V: Meta");
     }
 }
 
