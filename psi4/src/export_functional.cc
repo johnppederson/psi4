@@ -111,6 +111,16 @@ void export_functional(py::module &m) {
                  C_DCOPY(grid.npoints(), grid.w(), 1, ret->pointer(), 1);
                  return ret;
              })
+        .def("extd_pot",
+             [](BlockOPoints &grid) {
+                 auto ret = std::make_shared<Vector>("Extended Potential Grid", grid.npoints());
+                 C_DCOPY(grid.npoints(), grid.extd_pot(), 1, ret->pointer(), 1);
+                 return ret;
+             })
+        .def("set_extd_pot",
+             [](BlockOPoints &grid, std::shared_ptr<Vector> extd_pot) {
+                 C_DCOPY(grid.npoints(), extd_pot->pointer(), 1, grid.extd_pot(), 1);
+             })
         .def("refresh", &BlockOPoints::refresh, "docstring")
         .def("npoints", &BlockOPoints::npoints, "docstring")
         .def("parent_atom", &BlockOPoints::parent_atom, "Returns the atom number this BlockOfPoints belongs to.")
@@ -181,6 +191,7 @@ void export_functional(py::module &m) {
         .def("set_vv10_b", &SuperFunctional::set_vv10_b, "Sets the VV10 b parameter.")
         .def("set_vv10_c", &SuperFunctional::set_vv10_c, "Sets the VV10 c parameter.")
         .def("set_do_vv10", &SuperFunctional::set_do_vv10, "Sets whether to do VV10 correction.")
+        .def("set_do_extd_pot", &SuperFunctional::set_do_extd_pot, "Sets whether to incorporate QM/MM/PME extended potential in quadrature.")
         .def("set_grac_shift", &SuperFunctional::set_grac_shift, "Sets the GRAC bulk shift value.")
         .def("set_grac_alpha", &SuperFunctional::set_grac_alpha, "Sets the GRAC alpha parameter.")
         .def("set_grac_beta", &SuperFunctional::set_grac_beta, "Sets the GRAC beta parameter.")

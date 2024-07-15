@@ -61,6 +61,7 @@ from ..qcdb.basislist import corresponding_basis
 from . import dft, empirical_dispersion, mcscf, proc_util, response, solvent
 from .proc_data import method_algorithm_type
 from .roa import run_roa
+from . import pme
 
 # never import driver, wrappers, or aliases into this file
 
@@ -1432,6 +1433,28 @@ def scf_wavefunction_factory(name, ref_wfn, reference, **kwargs):
     # Figure out functional and dispersion
     superfunc, _disp_functor = build_functional_and_disp(name, restricted=(reference in ["RKS", "RHF"]), **kwargs)
 
+    # QM/MM/PME extended potential
+    if core.get_option("SCF", "PME"):
+        # Set the DFT quadrature to include the external potential.
+        # Workers are initialized upon initialization of Vbase object, 
+        # so this needs to happen presently.
+        superfunc.set_do_extd_pot(True)
+        # Set molecule to include vext contribution in nuclear
+        # repulsion energy.
+        ref_wfn.molecule().set_do_extd_pot(True)
+        # Make sure required input has been passed.
+        if ((not 'quad_extd_pot' in kwargs)
+            or (not 'nuc_extd_pot' in kwargs)):
+            raise ValidationError(
+                """QM/MM/PME requires the extended potential at the
+                quadrature gridpoints, quad_extd_pot, and the extended
+                potential at the nuclear coordinates, nuc_extd_pot."""
+            )
+        else:
+            nuc_extd_pot = kwargs['nuc_extd_pot']
+            extd_vector = core.Vector.from_array(nuc_extd_pot)
+            flag = ref_wfn.molecule().set_extd_pot(extd_vector)
+
     # Build the wavefunction
     core.prepare_options_for_module("SCF")
     if reference in ["RHF", "RKS"]:
@@ -1882,6 +1905,26 @@ def scf_helper(name, post_scf=True, **kwargs):
         scf_wfn.pe_state = solvent.pol_embed.CppeInterface(
             molecule=scf_molecule, options=pol_embed_options,
             basisset=scf_wfn.basisset()
+        )
+
+    # QM/MM/PME preparation
+    if core.get_option("SCF", "PME"):
+        # Only allow OCTREE grid blocking.
+        if core.get_global_option("DFT_BLOCK_SCHEME") != "OCTREE":
+            raise ValidationError(
+                """ QM/MM/PME is only implemented for OCTREE blocking
+                scheme in testing phase.\n"""
+            )
+        # Only allow PBE.
+        if name != "pbe":
+            raise ValidationError(
+                """ QM/MM/PME is only implemented for PBE in testing
+                phase.\n"""
+            )
+        quad_extd_pot = kwargs['quad_extd_pot']
+        pme.grid_interface.set_blocks_extd_pot(
+            scf_wfn.V_potential(),
+            quad_extd_pot,
         )
 
     e_scf = scf_wfn.compute_energy()
@@ -2693,6 +2736,23 @@ def run_scf_gradient(name, **kwargs):
     if hasattr(ref_wfn, "_disp_functor"):
         disp_grad = ref_wfn._disp_functor.compute_gradient(ref_wfn.molecule(), ref_wfn)
         ref_wfn.set_variable("-D Gradient", disp_grad)
+
+    # QM/MM/PME preparation.
+    if core.get_option('SCF', 'PME'):
+        if not 'nuc_extd_grad' in kwargs:
+            raise ValidationError(
+                """QM/MM/PME requires the gradient of the extended
+                potential at the nuclear coordinates, nuc_extd_grad."""
+            )
+        else:
+            ref_wfn.molecule().set_do_extd_grad(True)
+            nuc_extd_grad = kwargs['nuc_extd_grad']
+            extd_grad_x = core.Vector.from_array(nuc_extd_grad[:,0])
+            extd_grad_y = core.Vector.from_array(nuc_extd_grad[:,1])
+            extd_grad_z = core.Vector.from_array(nuc_extd_grad[:,2])
+            flag = ref_wfn.molecule().set_extd_grad_x(extd_grad_x)
+            flag = ref_wfn.molecule().set_extd_grad_y(extd_grad_y)
+            flag = ref_wfn.molecule().set_extd_grad_z(extd_grad_z)
 
     grad = core.scfgrad(ref_wfn)
 

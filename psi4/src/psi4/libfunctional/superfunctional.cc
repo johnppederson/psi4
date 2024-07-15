@@ -68,6 +68,8 @@ void SuperFunctional::common_init() {
     grac_alpha_ = 0.5;
     grac_beta_ = 40.0;
 
+    needs_extd_pot_ = false;
+
     needs_vv10_ = false;
     vv10_b_ = 0.0;
     vv10_c_ = 0.0;
@@ -179,6 +181,9 @@ std::shared_ptr<SuperFunctional> SuperFunctional::build_worker() {
         sup->vv10_b_ = vv10_b_;
         sup->vv10_c_ = vv10_c_;
         sup->vv10_beta_ = vv10_beta_;
+    }
+    if (needs_extd_pot_) {
+        sup->needs_extd_pot_ = true;
     }
     if (needs_grac_) {
         sup->needs_grac_ = true;

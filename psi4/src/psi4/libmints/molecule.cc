@@ -149,7 +149,9 @@ Molecule::Molecule()
       cart_(false),
       // old_symmetry_frame_(0)
       reinterpret_coordentries_(true),
-      lock_frame_(false) {}
+      lock_frame_(false),
+      needs_extd_pot_(false), 
+      needs_extd_grad_(false) {}
 
 Molecule::~Molecule() {
     clear();
@@ -179,6 +181,8 @@ Molecule &Molecule::operator=(const Molecule &other) {
     reinterpret_coordentries_ = other.reinterpret_coordentries_;
     zmat_ = other.zmat_;
     cart_ = other.cart_;
+    needs_extd_pot_ = other.needs_extd_pot_;
+    needs_extd_grad_ = other.needs_extd_grad_;
 
     // These are symmetry related variables, and are filled in by the following functions
     pg_ = std::shared_ptr<PointGroup>();
@@ -456,6 +460,14 @@ double Molecule::nuclear_repulsion_energy(const std::array<double, 3> &dipole_fi
         e += dipole_field[0] * nucdip[0] + dipole_field[1] * nucdip[1] + dipole_field[2] * nucdip[2];
     }
 
+    // Add QM/MM/PME extended potential contribution
+    if (needs_extd_pot()) {
+        for (int i = 0; i < natom(); ++i) {
+            double Zi = Z(i);
+            e += Zi * extd_pot_[i];
+        }
+    }
+
     return e;
 }
 
@@ -475,6 +487,16 @@ Matrix Molecule::nuclear_repulsion_energy_deriv1(const std::array<double, 3> &di
                 de(i, 1) -= (y(i) - y(j)) * Zi * Zj / temp;
                 de(i, 2) -= (z(i) - z(j)) * Zi * Zj / temp;
             }
+        }
+    }
+
+    // Add QM/MM/PME contribution
+    if (needs_extd_grad()) {
+        for (int i = 0; i < natom(); ++i) {
+            double Zi = Z(i);
+            de(i, 0) += Zi * extd_grad_x_[i];
+            de(i, 1) += Zi * extd_grad_y_[i];
+            de(i, 2) += Zi * extd_grad_z_[i];
         }
     }
 

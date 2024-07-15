@@ -378,6 +378,9 @@ class BlockOPoints {
     SharedVector zvec_;
     SharedVector wvec_;
 
+    /// QM/MM/PME extended potential
+    SharedVector extd_potvec_;
+
     /// Pointer to x (does not own)
     double* x_;
     /// Pointer to y (does not own)
@@ -386,6 +389,8 @@ class BlockOPoints {
     double* z_;
     /// Pointer to w (does not own)
     double* w_;
+    /// Pointer to extended potential (does not own)
+    double* extd_pot_;
     /// Relevant shells, local -> global
     std::vector<int> shells_local_to_global_;
     /// Relevant functions, local -> global
@@ -410,7 +415,12 @@ class BlockOPoints {
     BlockOPoints(SharedVector x, SharedVector y, SharedVector z, SharedVector w, std::shared_ptr<BasisExtents> extents);
     BlockOPoints(size_t index, size_t npoints, double* x, double* y, double* z, double* w,
                  std::shared_ptr<BasisExtents> extents);
+    BlockOPoints(size_t index, size_t npoints, double* x, double* y, double* z, double* w,
+                 double* extd_pot, std::shared_ptr<BasisExtents> extents);
     virtual ~BlockOPoints();
+
+    /// Set QM/MM/PME extended potential
+    void set_extd_pot(double* extd_pot);
 
     /// Refresh populations (if extents_->delta() changes)
     void refresh() { populate(); }
@@ -442,6 +452,8 @@ class BlockOPoints {
     double* z() const { return z_; }
     /// The weights. You do not own this
     double* w() const { return w_; }
+    /// The QM/MM/PME extended potential. Not best practice
+    double* extd_pot() { return extd_pot_; }
     /// The center of the block
     Vector3 center() const { return xc_; }
 

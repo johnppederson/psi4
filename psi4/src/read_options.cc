@@ -311,6 +311,10 @@ int read_options(const std::string &name, Options &options, bool suppress_printi
     /*- DDX boolean for ddx module -*/
     options.add_bool("DDX", false);
 
+    /*- PME boolean for the QM/MM/PME method -*/
+    options.add_bool("PME", false);
+
+
     if (name == "PCM" || options.read_globals()) {
         /*- MODULEDESCRIPTION Performs polarizable continuum model (PCM) computations. -*/
 

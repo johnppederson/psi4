@@ -159,3 +159,7 @@ GTAGS
 GPATH
 GRTAGS
 Pipfile.lock
+
+# Compiled code
+bin/
+build/

@@ -79,6 +79,15 @@ inline std::vector<double> rks_quadrature_integrate(std::shared_ptr<BlockOPoints
     ret[3] = C_DDOT(npoints, QTp, 1, y, 1);
     ret[4] = C_DDOT(npoints, QTp, 1, z, 1);
 
+    // QM/MM/PME extended potential contribution
+    if (fworker->needs_extd_pot()) {
+        double* extd_pot = block->extd_pot();
+        for (int P = 0; P < npoints; P++) {
+            QTp[P] = -1.0 * QTp[P];
+        }
+        ret[0] = ret[0] + C_DDOT(npoints, QTp, 1, extd_pot, 1);
+    }
+
     return ret;
 }
 
@@ -153,6 +162,14 @@ inline void rks_integrator(std::shared_ptr<BlockOPoints> block, std::shared_ptr<
         C_DAXPY(nlocal, 0.5 * v_rho_a[P] * w[P], phi[P], 1, Tp[P], 1);
     }
     // parallel_timer_off("LSDA Phi_tmp", rank);
+
+    // => QM/MM/PME extended potential contribution <= //
+    if (fworker->needs_extd_pot()) {
+        double* extd_pot = block->extd_pot();
+        for (int P = 0; P < npoints; P++) {
+            C_DAXPY(nlocal, -0.5 * extd_pot[P] * w[P], phi[P], 1, Tp[P], 1);
+        }
+    }
 
     // => GGA contribution <= //
     if (ansatz >= 1) {
@@ -253,7 +270,15 @@ inline void rks_gradient_integrator(std::shared_ptr<BasisSet> primary, std::shar
         C_DAXPY(nlocal, -2.0 * w[P] * v_rho_a[P], phi[P], 1, Tp[P], 1);
     }
 
-    // ==> GGA Contribution (Term 1) <== //
+    // => QM/MM/PME extended potential contribution <= //
+    if (fworker->needs_extd_pot()){
+        double* extd_pot = block->extd_pot();
+        for (int P = 0; P < npoints; P++) {
+            C_DAXPY(nlocal, 2.0 * extd_pot[P] * w[P], phi[P], 1, Tp[P], 1);
+        }
+    }
+
+   // ==> GGA Contribution (Term 1) <== //
     if (fworker->is_gga()) {
         auto rho_ax = pworker->point_value("RHO_AX")->pointer();
         auto rho_ay = pworker->point_value("RHO_AY")->pointer();

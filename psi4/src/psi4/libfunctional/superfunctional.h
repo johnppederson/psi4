@@ -96,6 +96,9 @@ class SuperFunctional {
     double vv10_c_;
     double vv10_beta_;
 
+    // => QM/MM/PME extended potential in quadrature <= //
+    bool needs_extd_pot_;
+
     // => Functional values and partials <= //
     bool libxc_xc_func_;
     int max_points_;
@@ -218,6 +221,7 @@ class SuperFunctional {
 
     void set_lock(bool locked) { locked_ = locked; }
     void set_do_vv10(bool do_vv10) { needs_vv10_ = do_vv10; }
+    void set_do_extd_pot(bool do_extd_pot) { needs_extd_pot_ = do_extd_pot; }
     void set_name(const std::string& name) { name_ = name; }
     void set_description(const std::string& description) { description_ = description; }
     void set_citation(const std::string& citation) { citation_ = citation; }
@@ -268,6 +272,7 @@ class SuperFunctional {
 
     bool needs_xc() const { return ((c_functionals_.size() + x_functionals_.size()) > 0); }
     bool needs_vv10() const { return needs_vv10_; };
+    bool needs_extd_pot() const { return needs_extd_pot_; };
     bool needs_grac() const { return needs_grac_; };
     bool PSI_API is_unpolarized() const;
     bool PSI_API is_meta() const;
